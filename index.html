@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC 實時監控儀表板</title>
+    <!-- Tailwind CSS (樣式庫) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- TradingView 圖表庫 -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        <!-- 頂部標題與狀態 -->
+        <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div>
+                <h1 class="text-2xl font-bold flex items-center gap-2">
+                    <span class="text-amber-500">₿</span> BTC/USDT 隨時監控
+                </h1>
+                <p class="text-xs text-slate-400">數據源：Binance WebSocket (零延遲)</p>
+            </div>
+            <div id="status" class="px-3 py-1 rounded-full text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                連線中...
+            </div>
+        </div>
+
+        <!-- 數據卡片區 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- 當前價格 -->
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <div class="text-slate-400 text-sm mb-1">即時價格 (USD)</div>
+                <div id="price" class="text-3xl font-extrabold tracking-tight">$--,--</div>
+            </div>
+
+            <!-- 24小時漲跌 -->
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <div class="text-slate-400 text-sm mb-1">24h 漲跌幅</div>
+                <div id="change" class="text-2xl font-bold">-- %</div>
+            </div>
+
+            <!-- 警報設定：下界支撐 -->
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <label class="text-slate-400 text-sm mb-1 block">警報支撐線 (跌破警報)</label>
+                <input type="number" id="supportInput" value="77000" 
+                       class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white focus:outline-none focus:border-red-500">
+            </div>
+
+            <!-- 警報設定：上界阻力 -->
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <label class="text-slate-400 text-sm mb-1 block">警報阻力線 (突破警報)</label>
+                <input type="number" id="resistanceInput" value="85000" 
+                       class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white focus:outline-none focus:border-green-500">
+            </div>
+        </div>
+
+        <!-- TradingView 實時 K 線圖表 -->
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div id="tradingview_chart" class="h-[500px] w-full"></div>
+        </div>
+    </div>
+
+    <!-- 腳本邏輯 -->
+    <script>
+        // 1. 初始化 TradingView K線圖
+        new TradingView.widget({
+            "autosize": true,
+            "symbol": "BINANCE:BTCUSDT",
+            "interval": "15",
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
+            "locale": "zh_TW",
+            "toolbar_bg": "#f1f3f6",
+            "enable_publishing": false,
+            "hide_side_toolbar": false,
+            "container_id": "tradingview_chart"
+        });
+
+        // 2. 音效系統 (使用 Web Audio API，不需額外下載 mp3)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function triggerAlarm(freq = 880) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5); // 響 0.5 秒
+        }
+
+        // 3. 建立 Binance 原生 WebSocket 連線 (極速行情)
+        const priceEl = document.getElementById('price');
+        const changeEl = document.getElementById('change');
+        const statusEl = document.getElementById('status');
+        const supportInput = document.getElementById('supportInput');
+        const resistanceInput = document.getElementById('resistanceInput');
+
+        let ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
+
+        ws.onopen = () => {
+            statusEl.innerText = "● WebSocket 連線成功";
+            statusEl.className = "px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const currentPrice = parseFloat(data.c); // 最新成交價
+            const priceChangePercent = parseFloat(data.P); // 24小時漲跌幅
+
+            // 更新價格 UI
+            priceEl.innerText = `$${currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            
+            // 價格漲跌色彩動畫
+            if (data.c > data.o) {
+                priceEl.className = "text-3xl font-extrabold tracking-tight text-emerald-400 transition-colors";
+            } else {
+                priceEl.className = "text-3xl font-extrabold tracking-tight text-rose-400 transition-colors";
+            }
+
+            // 更新 24h 漲跌 UI
+            changeEl.innerText = `${priceChangePercent >= 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%`;
+            changeEl.className = `text-2xl font-bold ${priceChangePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+            // 警報條件判斷
+            const support = parseFloat(supportInput.value);
+            const resistance = parseFloat(resistanceInput.value);
+
+            if (support && currentPrice <= support) {
+                triggerAlarm(440); // 蜂鳴低音警報
+                document.body.className = "bg-red-950 text-white min-h-screen p-4 md:p-8 transition-colors duration-300";
+            } else if (resistance && currentPrice >= resistance) {
+                triggerAlarm(880); // 蜂鳴高音警報
+                document.body.className = "bg-emerald-950 text-white min-h-screen p-4 md:p-8 transition-colors duration-300";
+            } else {
+                document.body.className = "bg-slate-900 text-white min-h-screen p-4 md:p-8 transition-colors duration-300";
+            }
+        };
+
+        ws.onclose = () => {
+            statusEl.innerText = "✕ 連線中斷";
+            statusEl.className = "px-3 py-1 rounded-full text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        };
+    </script>
+</body>
+</html>
