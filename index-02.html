@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全球黃金 (倫敦現貨) 與比特幣實時監控儀表板</title>
-    <!-- Tailwind CSS (樣式庫) -->
+    <title>全球黃金 (倫敦現貨/台幣換算) 與比特幣實時監控儀表板</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- TradingView 圖表庫 -->
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <!-- Chart.js（用於自建歷史數據折線圖） -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body class="bg-slate-900 text-white min-h-screen p-3 sm:p-4 md:p-8">
@@ -18,12 +18,11 @@
         <div class="flex flex-wrap justify-between items-center gap-3 bg-slate-800 p-4 rounded-xl border border-slate-700">
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold flex items-center gap-2">
-                    <span id="assetSymbolIcon" class="text-amber-500">🪙</span> <span id="assetTitle">倫敦金價 (XAU/USD) & 實時監控</span>
+                    <span id="assetSymbolIcon" class="text-amber-500">🪙</span> <span id="assetTitle">倫敦金價 (XAU/USD Spot) 實時監控</span>
                 </h1>
-                <p id="dataSourceDesc" class="text-xs text-slate-400">數據源：倫敦現貨流動性 (LBMA 基準追蹤) · <span id="lastUpdate">尚未更新</span></p>
+                <p id="dataSourceDesc" class="text-xs text-slate-400">數據源：倫敦現貨流動性基準 (XAU/USD Spot) · <span id="lastUpdate">尚未更新</span></p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-                <!-- 資產切換按鈕 -->
                 <button id="switchAssetBtn" class="px-3 py-1.5 rounded-lg text-xs bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors">
                     🔄 切換至：比特幣 (BTC)
                 </button>
@@ -31,7 +30,7 @@
                     🔊 音效開啟
                 </button>
                 <button id="notifyPermBtn" class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 border border-slate-600 hover:bg-slate-600 transition-colors">
-                    🔔 啟用瀏覽器通知
+                    🔔 啟用通知
                 </button>
                 <div id="status" class="px-3 py-1 rounded-full text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30">
                     連線中...
@@ -41,26 +40,22 @@
 
         <!-- 數據卡片區：即時價格 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            <!-- 當前價格 -->
             <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
                 <div id="priceLabel" class="text-slate-400 text-sm mb-1">即時金價 (USD/oz)</div>
                 <div id="price" class="text-3xl font-extrabold tracking-tight">$--,--</div>
             </div>
 
-            <!-- 24小時漲跌 -->
             <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
                 <div class="text-slate-400 text-sm mb-1">24h 漲跌幅</div>
                 <div id="change" class="text-2xl font-bold">-- %</div>
             </div>
 
-            <!-- 警報設定：下界支撐 -->
             <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
                 <label id="supportLabel" class="text-slate-400 text-sm mb-1 block">警報支撐線 (跌破警報)</label>
                 <input type="number" id="supportInput" value="4300" step="any"
                        class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white focus:outline-none focus:border-red-500">
             </div>
 
-            <!-- 警報設定：上界阻力 -->
             <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
                 <label id="resistanceLabel" class="text-slate-400 text-sm mb-1 block">警報阻力線 (突破警報)</label>
                 <input type="number" id="resistanceInput" value="4450" step="any"
@@ -83,35 +78,69 @@
                 <div id="volume24" class="text-lg font-bold">正常運作</div>
             </div>
             <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <div class="text-slate-400 text-xs mb-1">短期均價 (近20筆快照)</div>
+                <div class="text-slate-400 text-xs mb-1">短期均價 (近20筆)</div>
                 <div id="sma20" class="text-lg font-bold">--</div>
             </div>
         </div>
 
-        <!-- 黃金單位換算面板（僅在黃金模式顯示） -->
-        <div id="goldConverterSection" class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
-            <h2 class="text-sm font-semibold text-amber-400 flex items-center gap-2">
-                <span>⚖️</span> 黃金單位即時換算面板 (以當前現貨價計算)
-            </h2>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
-                    <div class="text-xs text-slate-400">每盎司 (Ounce / oz)</div>
-                    <div id="convOunce" class="text-base font-bold text-white mt-1">--</div>
-                </div>
-                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
-                    <div class="text-xs text-slate-400">每公克 (Gram / g)</div>
-                    <div id="convGram" class="text-base font-bold text-emerald-400 mt-1">--</div>
-                </div>
-                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
-                    <div class="text-xs text-slate-400">每公斤 (Kilogram / kg)</div>
-                    <div id="convKg" class="text-base font-bold text-amber-400 mt-1">--</div>
-                </div>
-                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
-                    <div class="text-xs text-slate-400">每台兩 (Tael = 37.5g)</div>
-                    <div id="convTael" class="text-base font-bold text-cyan-400 mt-1">--</div>
+        <!-- 黃金單位與台幣換算面板（僅在黃金模式顯示） -->
+        <div id="goldConverterSection" class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+                <h2 class="text-sm font-semibold text-amber-400 flex items-center gap-2">
+                    <span>⚖️</span> 黃金單位與新台幣 (TWD) 即時換算
+                </h2>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="text-slate-400">當前美元兌台幣 (USD/TWD)：</span>
+                    <input type="number" id="usdTwdInput" value="32.2" step="0.1" class="w-20 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-amber-300 font-bold text-center">
                 </div>
             </div>
-            <p class="text-xs text-slate-500">註：1 盎司 = 31.1034768 公克；1 台兩 = 37.5 公克（華人傳統計算單位）。</p>
+
+            <!-- 美元計價區 -->
+            <div>
+                <div class="text-xs text-slate-400 mb-1">國際美元計價 (USD)</div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                        <div class="text-[11px] text-slate-400">每盎司 (oz)</div>
+                        <div id="convUSD_oz" class="text-sm font-bold text-white mt-1">--</div>
+                    </div>
+                    <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                        <div class="text-[11px] text-slate-400">每公克 (g)</div>
+                        <div id="convUSD_g" class="text-sm font-bold text-emerald-400 mt-1">--</div>
+                    </div>
+                    <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                        <div class="text-[11px] text-slate-400">每公斤 (kg)</div>
+                        <div id="convUSD_kg" class="text-sm font-bold text-amber-400 mt-1">--</div>
+                    </div>
+                    <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                        <div class="text-[11px] text-slate-400">每台兩 (37.5g)</div>
+                        <div id="convUSD_tael" class="text-sm font-bold text-cyan-400 mt-1">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 新台幣計價區 (在地化重點) -->
+            <div>
+                <div class="text-xs text-amber-400/80 mb-1 font-semibold">新台幣換算參考 (TWD) —— 台灣銀樓／存摺對照基準</div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="bg-slate-900 p-3 rounded-lg border border-amber-500/30">
+                        <div class="text-[11px] text-slate-400">每盎司 (TWD)</div>
+                        <div id="convTWD_oz" class="text-sm font-bold text-white mt-1">--</div>
+                    </div>
+                    <div class="bg-slate-900 p-3 rounded-lg border border-amber-500/30">
+                        <div class="text-[11px] text-slate-400">每公克 (NTD/g)</div>
+                        <div id="convTWD_g" class="text-sm font-bold text-emerald-300 mt-1">--</div>
+                    </div>
+                    <div class="bg-slate-900 p-3 rounded-lg border border-amber-500/30">
+                        <div class="text-[11px] text-slate-400">每公斤 (NTD/kg)</div>
+                        <div id="convTWD_kg" class="text-sm font-bold text-amber-300 mt-1">--</div>
+                    </div>
+                    <div class="bg-slate-900 p-3 rounded-lg border border-amber-500/30 bg-amber-950/20">
+                        <div class="text-[11px] text-amber-200">每台兩 (NTD/台兩) ★</div>
+                        <div id="convTWD_tael" class="text-base font-extrabold text-amber-300 mt-1">--</div>
+                    </div>
+                </div>
+            </div>
+            <p class="text-xs text-slate-500">註：1 盎司 = 31.1034768 公克；1 台兩 = 37.5 公克。新台幣數值隨匯率與國際現貨即時連動計算。</p>
         </div>
 
         <!-- TradingView 實時圖表 -->
@@ -142,10 +171,10 @@
                 <span>🛡️</span> 免責聲明與資料來源提示
             </h3>
             <p>
-                <strong>1. 資料來源說明：</strong>本系統黃金報價追蹤全球倫敦金銀市場（LBMA）現貨脈動與主流流動性基準（透過公開聚合 API 取得即時滾動現貨價 XAU/USD）；比特幣則追蹤主流交易所現貨。
+                <strong>1. 資料來源說明：</strong>本系統黃金報價追蹤全球倫敦金銀市場（LBMA）現貨流動性基準（透過公開聚合 API 取得即時滾動現貨價 XAU/USD）；比特幣則追蹤主流交易所現貨。
             </p>
             <p>
-                <strong>2. 交易與實體價差風險：</strong>國際現貨價與您實際前往銀行（黃金存摺）、銀樓（實體金條/飾金）交易時的牌價會存在落差。實體黃金通常包含鑄造費、品牌溢價與買賣價差；黃金存摺則受銀行牌告價與美元兌台幣匯率影響。
+                <strong>2. 交易與實體價差風險：</strong>國際現貨換算台幣之價格並不等同於台灣銀樓飾金牌價或銀行黃金存摺牌價。實體黃金通常包含鑄造費、品牌溢價與買賣價差（Spread）；黃金存摺則受個別銀行牌告價與即時匯率影響。
             </p>
             <p>
                 <strong>3. 投資警語：</strong>金融市場波動劇烈，網路即時報價可能因連線品質產生短暫延遲。本系統之數據與警報僅供技術分析與趨勢監控參考，不構成任何投資建議，使用者須自行評估與承擔所有投資盈虧風險。
@@ -157,17 +186,16 @@
     <script>
         let currentAsset = 'gold'; // 'gold' | 'btc'
 
-        // 參數設定
         const CONFIG = {
             gold: {
-                title: '倫敦金價 (XAU/USD) 實時監控',
-                desc: '數據源：倫敦現貨流動性 (LBMA 基準追蹤) · ',
+                title: '倫敦金價 (XAU/USD Spot) 實時監控',
+                desc: '數據源：倫敦現貨流動性基準 (XAU/USD Spot) · ',
                 priceLabel: '即時金價 (USD/oz)',
                 historyTitle: '黃金現貨歷史價格記錄（本機保存，最長 24 小時）',
                 supportDefault: '4300',
                 resistanceDefault: '4450',
-                historyKey: 'gold_price_history_v1',
-                threshKey: 'gold_thresholds_v1',
+                historyKey: 'gold_price_history_v2',
+                threshKey: 'gold_thresholds_v2',
                 tvSymbol: 'OANDA:XAUUSD',
                 icon: '🪙'
             },
@@ -178,8 +206,8 @@
                 historyTitle: 'BTC 歷史價格記錄（本機保存，最長 24 小時）',
                 supportDefault: '77000',
                 resistanceDefault: '85000',
-                historyKey: 'btc_price_history_v1',
-                threshKey: 'btc_thresholds_v1',
+                historyKey: 'btc_price_history_v2',
+                threshKey: 'btc_thresholds_v2',
                 tvSymbol: 'BINANCE:BTCUSDT',
                 icon: '₿'
             }
@@ -203,21 +231,18 @@
             });
         }
 
-        // 初始化圖表
         initTradingView(CONFIG.gold.tvSymbol);
 
-        // DOM 元素
         const assetTitleEl = document.getElementById('assetTitle');
         const dataSourceDescEl = document.getElementById('dataSourceDesc');
         const assetSymbolIconEl = document.getElementById('assetSymbolIcon');
         const priceLabelEl = document.getElementById('priceLabel');
-        const supportLabelEl = document.getElementById('supportLabel');
-        const resistanceLabelEl = document.getElementById('resistanceLabel');
         const supportInput = document.getElementById('supportInput');
         const resistanceInput = document.getElementById('resistanceInput');
         const historyTitleEl = document.getElementById('historyTitle');
         const goldConverterSection = document.getElementById('goldConverterSection');
         const switchAssetBtn = document.getElementById('switchAssetBtn');
+        const usdTwdInput = document.getElementById('usdTwdInput');
 
         function applyAssetConfig() {
             const cfg = CONFIG[currentAsset];
@@ -237,7 +262,6 @@
                 switchAssetBtn.className = 'px-3 py-1.5 rounded-lg text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors';
             }
 
-            // 載入門檻記憶
             try {
                 const saved = JSON.parse(localStorage.getItem(cfg.threshKey) || 'null');
                 if (saved) {
@@ -261,7 +285,6 @@
             applyAssetConfig();
         });
 
-        // 儲存門檻
         function saveThresholds() {
             try {
                 const cfg = CONFIG[currentAsset];
@@ -274,7 +297,6 @@
         supportInput.addEventListener('change', saveThresholds);
         resistanceInput.addEventListener('change', saveThresholds);
 
-        // 歷史資料管理
         const RECORD_INTERVAL_MS = 10 * 1000;
         const MAX_HISTORY_MS = 24 * 60 * 60 * 1000;
         let priceHistory = [];
@@ -319,7 +341,6 @@
             updateHistoryChart();
         });
 
-        // Chart.js 初始化
         const historyCtx = document.getElementById('historyChart').getContext('2d');
         const historyChart = new Chart(historyCtx, {
             type: 'line',
@@ -381,7 +402,6 @@
             });
         });
 
-        // 聲音與通知
         let muted = false;
         let audioCtx = null;
         function getAudioCtx() {
@@ -433,7 +453,6 @@
             }
         }
 
-        // 資料抓取與輪詢
         const priceEl = document.getElementById('price');
         const changeEl = document.getElementById('change');
         const statusEl = document.getElementById('status');
@@ -442,26 +461,43 @@
         const low24El = document.getElementById('low24');
         const volume24El = document.getElementById('volume24');
 
-        // 黃金單位換算更新
+        // 更新黃金單位與台幣換算
         function updateGoldConverter(priceOz) {
             const GRAMS_PER_OZ = 31.1034768;
             const TAEL_GRAMS = 37.5;
+            const usdTwd = parseFloat(usdTwdInput.value) || 32.2;
 
-            const priceGram = priceOz / GRAMS_PER_OZ;
-            const priceKg = priceGram * 1000;
-            const priceTael = priceGram * TAEL_GRAMS;
+            const priceGramUSD = priceOz / GRAMS_PER_OZ;
+            const priceKgUSD = priceGramUSD * 1000;
+            const priceTaelUSD = priceGramUSD * TAEL_GRAMS;
 
-            document.getElementById('convOunce').textContent = `$${priceOz.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            document.getElementById('convGram').textContent = `$${priceGram.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            document.getElementById('convKg').textContent = `$${priceKg.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-            document.getElementById('convTael').textContent = `$${priceTael.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            // USD 顯示
+            document.getElementById('convUSD_oz').textContent = `$${priceOz.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            document.getElementById('convUSD_g').textContent = `$${priceGramUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            document.getElementById('convUSD_kg').textContent = `$${priceKgUSD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+            document.getElementById('convUSD_tael').textContent = `$${priceTaelUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+            // TWD 換算顯示
+            const priceOzTWD = priceOz * usdTwd;
+            const priceGramTWD = priceGramUSD * usdTwd;
+            const priceKgTWD = priceKgUSD * usdTwd;
+            const priceTaelTWD = priceTaelUSD * usdTwd;
+
+            document.getElementById('convTWD_oz').textContent = `NT$ ${priceOzTWD.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+            document.getElementById('convTWD_g').textContent = `NT$ ${priceGramTWD.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
+            document.getElementById('convTWD_kg').textContent = `NT$ ${priceKgTWD.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+            document.getElementById('convTWD_tael').textContent = `NT$ ${priceTaelTWD.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
         }
 
-        // 資料來源輪詢
-        let goldSimPrice = 4345.50; // 初始黃金示範價格（若API失敗時的平滑回退）
+        usdTwdInput.addEventListener('input', () => {
+            if (currentAsset === 'gold' && window.lastGoldPrice) {
+                updateGoldConverter(window.lastGoldPrice);
+            }
+        });
+
+        let goldSimPrice = 4345.50;
         async function fetchGoldData() {
             try {
-                // 串接公開黃金現貨 API
                 const res = await fetch('https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT', { signal: AbortSignal.timeout(6000) });
                 if (res.ok) {
                     const data = await res.json();
@@ -481,7 +517,6 @@
                 }
             } catch (e) {}
             
-            // 失敗或無網際網路時使用穩定模擬微幅波動
             goldSimPrice += (Math.random() - 0.48) * 1.5;
             return {
                 price: goldSimPrice,
@@ -493,7 +528,6 @@
             };
         }
 
-        // BTC WebSocket 連線
         let btcWs = null;
         let btcLatestData = null;
 
@@ -521,6 +555,7 @@
             let ticker = null;
             if (currentAsset === 'gold') {
                 ticker = await fetchGoldData();
+                window.lastGoldPrice = ticker.price;
                 updateGoldConverter(ticker.price);
             } else {
                 if (btcLatestData) {
@@ -595,7 +630,6 @@
             }
         }
 
-        // 初始化載入
         applyAssetConfig();
     </script>
 </body>
