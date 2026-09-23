@@ -3,581 +3,637 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>黃金與比特幣即時監控儀表板</title>
-    <!-- Tailwind CSS -->
+    <title>黃金與比特幣即時監控與單位換算面板</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- TradingView widget library -->
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- TradingView Widget Script -->
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <!-- Chart.js for local history charts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body class="bg-slate-900 text-white min-h-screen p-3 sm:p-4 md:p-8 transition-colors duration-300">
 
-    <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-        <!-- 頂部標題與資產切換 -->
-        <div class="flex flex-wrap justify-between items-center gap-3 bg-slate-800 p-4 rounded-xl border border-slate-700">
-            <div>
-                <h1 class="text-xl sm:text-2xl font-bold flex items-center gap-2">
-                    <span id="assetIcon" class="text-amber-400">🪙</span> 
-                    <span id="assetTitle">全球黃金 / 倫敦金 (XAU/USD) 即時監控</span>
-                </h1>
-                <p class="text-xs text-slate-400">當前監控標的：<span id="dataSourceDesc">LBMA 倫敦黃金現貨 / Gold API</span> · <span id="lastUpdate">尚未更新</span></p>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-                <!-- 標的切換按鈕組 -->
-                <div class="bg-slate-900 p-1 rounded-lg border border-slate-700 flex gap-1">
-                    <button id="switchGoldBtn" class="px-3 py-1.5 rounded-md text-xs font-bold bg-amber-600 text-white transition-colors shadow">
-                        🪙 黃金 (Gold)
-                    </button>
-                    <button id="switchBtcBtn" class="px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition-colors">
-                        ₿ 比特幣 (BTC)
-                    </button>
-                </div>
-                <button id="muteBtn" class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 border border-slate-600 hover:bg-slate-600 transition-colors">
-                    🔊 音效開啟
+<div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+    <!-- 頂部標題與資產切換 -->
+    <div class="flex flex-wrap justify-between items-center gap-3 bg-slate-800 p-4 rounded-xl border border-slate-700">
+        <div>
+            <h1 class="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                <span id="assetIcon" class="text-amber-400">🪙</span> 
+                <span id="assetTitle">全球黃金 / 倫敦金 (XAU/USD) 即時監控</span>
+            </h1>
+            <p class="text-xs text-slate-400">當前監控標的：<span id="dataSourceDesc">LBMA 倫敦黃金現貨 / Gold API</span> · <span id="lastUpdate">尚未更新</span></p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <!-- 標的切換按鈕組 -->
+            <div class="bg-slate-900 p-1 rounded-lg border border-slate-700 flex gap-1">
+                <button id="switchGoldBtn" class="px-3 py-1.5 rounded-md text-xs font-bold bg-amber-600 text-white transition-colors shadow">
+                    🪙 黃金 (Gold)
                 </button>
-                <button id="notifyPermBtn" class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 border border-slate-600 hover:bg-slate-600 transition-colors">
-                    🔔 啟用通知
+                <button id="switchBtcBtn" class="px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition-colors">
+                    ₿ 比特幣 (BTC)
                 </button>
-                <div id="status" class="px-3 py-1 rounded-full text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    連線初始化中...
-                </div>
             </div>
-        </div>
-
-        <!-- 數據卡片區：即時價格與警報設定 -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            <!-- 當前價格 -->
-            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
-                <div id="priceLabel" class="text-slate-400 text-sm mb-1">倫敦現貨金價 (USD/盎司)</div>
-                <div id="price" class="text-3xl font-extrabold tracking-tight text-amber-400">$--,--</div>
-            </div>
-
-            <!-- 變動與趨勢 -->
-            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
-                <div id="changeLabel" class="text-slate-400 text-sm mb-1">價格變動 (Delta / 24h)</div>
-                <div id="change" class="text-2xl font-bold text-slate-200">--</div>
-            </div>
-
-            <!-- 警報設定：下界支撐 -->
-            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
-                <label id="supportLabel" class="text-slate-400 text-sm mb-1 block">黃金支撐線 (跌破警報)</label>
-                <input type="number" id="supportInput" value="4300" step="1"
-                       class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white focus:outline-none focus:border-red-500">
-            </div>
-
-            <!-- 警報設定：上界阻力 -->
-            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
-                <label id="resistanceLabel" class="text-slate-400 text-sm mb-1 block">黃金阻力線 (突破警報)</label>
-                <input type="number" id="resistanceInput" value="4400" step="1"
-                       class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white focus:outline-none focus:border-green-500">
-            </div>
-        </div>
-
-        <!-- 數據卡片區：延伸指標 -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <div class="text-slate-400 text-xs mb-1">更新時間標記</div>
-                <div id="timestampBadge" class="text-sm font-bold text-slate-300">--</div>
-            </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <div class="text-slate-400 text-xs mb-1">更新頻率 / 傳輸模式</div>
-                <div id="modeBadge" class="text-sm font-bold text-cyan-400">定時輪詢 (每30秒)</div>
-            </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <div class="text-slate-400 text-xs mb-1">資產類別基準</div>
-                <div id="benchmarkBadge" class="text-sm font-bold text-amber-300">LBMA 倫敦黃金</div>
-            </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                <div class="text-slate-400 text-xs mb-1">短期均價 (近20筆)</div>
-                <div id="sma20" class="text-lg font-bold">--</div>
-            </div>
-        </div>
-
-        <!-- TradingView 實時 K 線圖表 -->
-        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-            <div id="tvChartTitle" class="text-sm font-semibold text-slate-300 mb-2">國際黃金實時線圖（OANDA:XAUUSD）</div>
-            <div id="tradingview_container" class="h-[400px] sm:h-[500px] w-full">
-                <div id="tradingview_chart" class="w-full h-full"></div>
-            </div>
-        </div>
-
-        <!-- 自建歷史數據折線圖 -->
-        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-            <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
-                <h2 id="historyTitle" class="text-sm font-semibold text-slate-300">黃金歷史價格記錄（本機儲存）</h2>
-                <div class="flex gap-2">
-                    <button data-range="1" class="range-btn px-2.5 py-1 rounded text-xs bg-slate-700 border border-slate-600">近1小時</button>
-                    <button data-range="6" class="range-btn px-2.5 py-1 rounded text-xs bg-slate-700 border border-slate-600">近6小時</button>
-                    <button data-range="24" class="range-btn px-2.5 py-1 rounded text-xs bg-amber-600 border border-amber-500">近24小時</button>
-                    <button id="clearHistoryBtn" class="px-2.5 py-1 rounded text-xs bg-slate-700 border border-slate-600 hover:bg-rose-900">清除記錄</button>
-                </div>
-            </div>
-            <div class="h-[260px] w-full">
-                <canvas id="historyChart"></canvas>
-            </div>
-            <p class="text-xs text-slate-500 mt-2">資料儲存於當前瀏覽器本地端，切換資產時會自動載入對應歷史資料。</p>
-        </div>
-
-        <!-- 推播通知設定 -->
-        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
-            <h2 class="text-sm font-semibold text-slate-300">遠端推播通知設定</h2>
-            <div class="flex flex-wrap items-center gap-3">
-                <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                    <input type="checkbox" id="remotePushToggle" class="w-4 h-4 accent-amber-500">
-                    啟用遠端推播（Telegram / LINE 伺服器端轉發）
-                </label>
-                <button id="testPushBtn" class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 border border-slate-600 hover:bg-slate-600 transition-colors">
-                    發送測試通知
-                </button>
-                <span id="pushTestResult" class="text-xs text-slate-400"></span>
+            <button id="muteBtn" class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 border border-slate-600 hover:bg-slate-600 transition-colors">
+                🔊 音效開啟
+            </button>
+            <button id="notifyPermBtn" class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 border border-slate-600 hover:bg-slate-600 transition-colors">
+                🔔 啟用通知
+            </button>
+            <div id="status" class="px-3 py-1 rounded-full text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                連線初始化中...
             </div>
         </div>
     </div>
 
-    <!-- 腳本邏輯 -->
-    <script>
-        // ===== 狀態管理 =====
-        let currentAsset = 'gold'; // 'gold' 或 'btc'
-        let tvWidget = null;
+    <!-- 數據卡片區：即時價格與警報設定 -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <!-- 當前價格 -->
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+            <div id="priceLabel" class="text-slate-400 text-sm mb-1">倫敦現貨金價 (USD/盎司)</div>
+            <div id="price" class="text-3xl font-extrabold tracking-tight text-amber-400">$--,--</div>
+        </div>
 
-        // 資產配置參數設定
-        const ASSET_CONFIG = {
-            gold: {
-                name: '黃金 (Gold)',
-                title: '全球黃金 / 倫敦金 (XAU/USD) 即時監控',
-                icon: '🪙',
-                dataSource: 'LBMA 倫敦黃金現貨 / Gold API',
-                tvSymbol: 'OANDA:XAUUSD',
-                historyKey: 'gold_price_history_v2',
-                threshKey: 'gold_thresholds_v2',
-                defaultSupport: 4300,
-                defaultResistance: 4400,
-                priceLabel: '倫敦現貨金價 (USD/盎司)',
-                changeLabel: '輪詢變動 (Delta)',
-                supportLabel: '黃金支撐線 (跌破警報)',
-                resistanceLabel: '黃金阻力線 (突破警報)',
-                modeText: '定時輪詢 (每30秒)',
-                benchmarkText: 'LBMA 倫敦黃金',
-                color: '#f59e0b',
-                accentClass: 'text-amber-400',
-                btnActive: 'bg-amber-600 text-white shadow',
-                chartLabel: 'XAU/USD Spot'
-            },
-            btc: {
-                name: '比特幣 (BTC)',
-                title: '比特幣 / 美元 (BTC/USDT) 即時監控',
-                icon: '₿',
-                dataSource: 'Binance WebSocket 即時行情',
-                tvSymbol: 'BINANCE:BTCUSDT',
-                historyKey: 'btc_price_history_v2',
-                threshKey: 'btc_thresholds_v2',
-                defaultSupport: 77000,
-                defaultResistance: 85000,
-                priceLabel: '即時價格 (USD)',
-                changeLabel: '24h 漲跌幅',
-                supportLabel: 'BTC支撐線 (跌破警報)',
-                resistanceLabel: 'BTC阻力線 (突破警報)',
-                modeText: 'WebSocket 即時串流',
-                benchmarkText: 'Binance 交易所',
-                color: '#38bdf8',
-                accentClass: 'text-sky-400',
-                btnActive: 'bg-sky-600 text-white shadow',
-                chartLabel: 'BTC/USDT'
-            }
-        };
+        <!-- 變動與趨勢 -->
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+            <div id="changeLabel" class="text-slate-400 text-sm mb-1">價格變動 (Delta / 24h)</div>
+            <div id="change" class="text-2xl font-bold text-slate-200">--</div>
+        </div>
 
-        let lastPrice = null;
-        let priceHistory = [];
-        let currentRangeHours = 24;
-        let alertState = 'normal';
-        let lastAlertTime = 0;
-        let muted = false;
-        let goldInterval = null;
-        let btcWs = null;
+        <!-- 警報設定：下界支撐 -->
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+            <label id="supportLabel" class="text-slate-400 text-sm mb-1 block">黃金支撐線 (跌破警報)</label>
+            <input type="number" id="supportInput" value="4300" step="1"
+                   class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white focus:outline-none focus:border-red-500">
+        </div>
 
-        // UI 元素
-        const assetIcon = document.getElementById('assetIcon');
-        const assetTitle = document.getElementById('assetTitle');
-        const dataSourceDesc = document.getElementById('dataSourceDesc');
-        const priceLabel = document.getElementById('priceLabel');
-        const changeLabel = document.getElementById('changeLabel');
-        const supportLabel = document.getElementById('supportLabel');
-        const resistanceLabel = document.getElementById('resistanceLabel');
-        const supportInput = document.getElementById('supportInput');
-        const resistanceInput = document.getElementById('resistanceInput');
-        const modeBadge = document.getElementById('modeBadge');
-        const benchmarkBadge = document.getElementById('benchmarkBadge');
-        const tvChartTitle = document.getElementById('tvChartTitle');
-        const historyTitle = document.getElementById('historyTitle');
-        const priceEl = document.getElementById('price');
-        const changeEl = document.getElementById('change');
-        const statusEl = document.getElementById('status');
-        const lastUpdateEl = document.getElementById('lastUpdate');
-        const timestampBadge = document.getElementById('timestampBadge');
-        const smaEl = document.getElementById('sma20');
+        <!-- 警報設定：上界阻力 -->
+        <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+            <label id="resistanceLabel" class="text-slate-400 text-sm mb-1 block">黃金阻力線 (突破警報)</label>
+            <input type="number" id="resistanceInput" value="4400" step="1"
+                   class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white focus:outline-none focus:border-green-500">
+        </div>
+    </div>
 
-        // ===== 載入與切換資產 =====
-        function switchAsset(assetKey) {
-            currentAsset = assetKey;
-            const cfg = ASSET_CONFIG[assetKey];
+    <!-- 數據卡片區：延伸指標 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div class="text-slate-400 text-xs mb-1">更新時間標記</div>
+            <div id="timestampBadge" class="text-sm font-bold text-slate-300">--</div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div class="text-slate-400 text-xs mb-1">更新頻率 / 傳輸模式</div>
+            <div id="modeBadge" class="text-sm font-bold text-cyan-400">定時輪詢 (每30秒)</div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div class="text-slate-400 text-xs mb-1">資產類別基準</div>
+            <div id="benchmarkBadge" class="text-sm font-bold text-amber-300">LBMA 倫敦黃金</div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <div class="text-slate-400 text-xs mb-1">短期均價 (近20筆)</div>
+            <div id="sma20" class="text-lg font-bold">--</div>
+        </div>
+    </div>
 
-            // 停止舊的連線
-            if (goldInterval) clearInterval(goldInterval);
-            if (btcWs) { btcWs.close(); btcWs = null; }
+    <!-- 黃金單位換算專用區塊 (切換為 BTC 時會自動切換為對應說明或聰的換算) -->
+    <div id="unitConverterCard" class="bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-700 space-y-3">
+        <div class="flex justify-between items-center">
+            <h2 id="converterTitle" class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                <span>⚖️</span> 黃金單位即時換算表（盎司 / 公克 / 公斤 / 台兩）
+            </h2>
+            <span class="text-xs text-slate-400">基準：1 盎司 (oz) = 31.1035 公克 (g)</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <div class="text-xs text-slate-400 mb-1">每盎司 (USD / Ounce)</div>
+                <div id="convOunce" class="text-lg font-bold text-amber-400">--</div>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <div class="text-xs text-slate-400 mb-1">每公克 (USD / Gram)</div>
+                <div id="convGram" class="text-lg font-bold text-amber-300">--</div>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <div class="text-xs text-slate-400 mb-1">每公斤 (USD / Kilogram)</div>
+                <div id="convKg" class="text-lg font-bold text-amber-200">--</div>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-700">
+                <div class="text-xs text-slate-400 mb-1">每台兩 (USD / Tael - 37.5g)</div>
+                <div id="convTael" class="text-lg font-bold text-amber-500">--</div>
+            </div>
+        </div>
+    </div>
 
-            // 更新頂部按鈕狀態
-            const goldBtn = document.getElementById('switchGoldBtn');
-            const btcBtn = document.getElementById('switchBtcBtn');
-            if (assetKey === 'gold') {
-                goldBtn.className = `px-3 py-1.5 rounded-md text-xs font-bold ${cfg.btnActive} transition-colors`;
-                btcBtn.className = `px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition-colors`;
-            } else {
-                btcBtn.className = `px-3 py-1.5 rounded-md text-xs font-bold ${cfg.btnActive} transition-colors`;
-                goldBtn.className = `px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition-colors`;
-            }
+    <!-- TradingView 實時 K 線圖表 -->
+    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+        <div id="tvChartTitle" class="text-sm font-semibold text-slate-300 mb-2">國際黃金實時線圖（OANDA:XAUUSD）</div>
+        <div id="tradingview_container" class="h-[400px] sm:h-[500px] w-full">
+            <div id="tradingview_chart" class="w-full h-full"></div>
+        </div>
+    </div>
 
-            // 更新標題與文字
-            assetIcon.textContent = cfg.icon;
-            assetIcon.className = cfg.accentClass;
-            assetTitle.textContent = cfg.title;
-            dataSourceDesc.textContent = cfg.dataSource;
-            priceLabel.textContent = cfg.priceLabel;
-            changeLabel.textContent = cfg.changeLabel;
-            supportLabel.textContent = cfg.supportLabel;
-            resistanceLabel.textContent = cfg.resistanceLabel;
-            modeBadge.textContent = cfg.modeText;
-            benchmarkBadge.textContent = cfg.benchmarkText;
-            tvChartTitle.textContent = `實時線圖（${cfg.tvSymbol}）`;
-            historyTitle.textContent = `${cfg.name} 歷史價格記錄（本機儲存）`;
+    <!-- 自建歷史數據折線圖 -->
+    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+        <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+            <h2 id="historyTitle" class="text-sm font-semibold text-slate-300">黃金歷史價格記錄（本機儲存）</h2>
+            <div class="flex gap-2">
+                <button data-range="1" class="range-btn px-2.5 py-1 rounded text-xs bg-slate-700 border border-slate-600">近1小時</button>
+                <button data-range="6" class="range-btn px-2.5 py-1 rounded text-xs bg-slate-700 border border-slate-600">近6小時</button>
+                <button data-range="24" class="range-btn px-2.5 py-1 rounded text-xs bg-amber-600 border border-amber-500">近24小時</button>
+                <button id="clearHistoryBtn" class="px-2.5 py-1 rounded text-xs bg-slate-700 border border-slate-600 hover:bg-rose-900">清除記錄</button>
+            </div>
+        </div>
+        <div class="h-[260px] w-full">
+            <canvas id="historyChart"></canvas>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">資料儲存於當前瀏覽器本地端，切換資產時會自動載入對應歷史資料。</p>
+    </div>
 
-            // 載入門檻記憶
-            loadThresholds();
+    <!-- 推播通知設定 -->
+    <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
+        <h2 class="text-sm font-semibold text-slate-300">遠端推播通知設定</h2>
+        <div class="flex flex-wrap items-center gap-3">
+            <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                <input type="checkbox" id="remotePushToggle" class="w-4 h-4 accent-amber-500">
+                啟用遠端推播（Telegram / LINE 伺服器端轉發）
+            </label>
+            <button id="testPushBtn" class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 border border-slate-600 hover:bg-slate-600 transition-colors">
+                發送測試通知
+            </button>
+            <span id="pushTestResult" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+</div>
 
-            // 載入歷史資料
-            loadHistory();
-            updateHistoryChart();
+<!-- 腳本邏輯 -->
+<script>
+    // ===== 狀態管理 =====
+    let currentAsset = 'gold'; // 'gold' 或 'btc'
+    let tvWidget = null;
 
-            // 重新初始化 TradingView 圖表
-            initTradingView(cfg.tvSymbol);
+    // 資產配置參數設定
+    const ASSET_CONFIG = {
+        gold: {
+            name: '黃金 (Gold)',
+            title: '全球黃金 / 倫敦金 (XAU/USD) 即時監控',
+            icon: '🪙',
+            dataSource: 'LBMA 倫敦黃金現貨 / Gold API',
+            tvSymbol: 'OANDA:XAUUSD',
+            historyKey: 'gold_price_history_v2',
+            threshKey: 'gold_thresholds_v2',
+            defaultSupport: 4300,
+            defaultResistance: 4400,
+            priceLabel: '倫敦現貨金價 (USD/盎司)',
+            changeLabel: '輪詢變動 (Delta)',
+            supportLabel: '黃金支撐線 (跌破警報)',
+            resistanceLabel: '黃金阻力線 (突破警報)',
+            modeText: '定時輪詢 (每30秒)',
+            benchmarkText: 'LBMA 倫敦黃金',
+            color: '#f59e0b',
+            accentClass: 'text-amber-400',
+            btnActive: 'bg-amber-600 text-white shadow',
+            chartLabel: 'XAU/USD Spot'
+        },
+        btc: {
+            name: '比特幣 (BTC)',
+            title: '比特幣 / 美元 (BTC/USDT) 即時監控',
+            icon: '₿',
+            dataSource: 'Binance WebSocket 即時行情',
+            tvSymbol: 'BINANCE:BTCUSDT',
+            historyKey: 'btc_price_history_v2',
+            threshKey: 'btc_thresholds_v2',
+            defaultSupport: 77000,
+            defaultResistance: 85000,
+            priceLabel: '即時價格 (USD)',
+            changeLabel: '24h 漲跌幅',
+            supportLabel: 'BTC支撐線 (跌破警報)',
+            resistanceLabel: 'BTC阻力線 (突破警報)',
+            modeText: 'WebSocket 即時串流',
+            benchmarkText: 'Binance 交易所',
+            color: '#38bdf8',
+            accentClass: 'text-sky-400',
+            btnActive: 'bg-sky-600 text-white shadow',
+            chartLabel: 'BTC/USDT'
+        }
+    };
 
-            // 啟動對應資料來源
-            lastPrice = null;
-            if (assetKey === 'gold') {
-                fetchGoldPriceData();
-                goldInterval = setInterval(fetchGoldPriceData, 30 * 1000);
-            } else {
-                connectBtcWebSocket();
-            }
+    let lastPrice = null;
+    let priceHistory = [];
+    let currentRangeHours = 24;
+    let alertState = 'normal';
+    let lastAlertTime = 0;
+    let muted = false;
+    let goldInterval = null;
+    let btcWs = null;
+
+    // UI 元素
+    const assetIcon = document.getElementById('assetIcon');
+    const assetTitle = document.getElementById('assetTitle');
+    const dataSourceDesc = document.getElementById('dataSourceDesc');
+    const priceLabel = document.getElementById('priceLabel');
+    const changeLabel = document.getElementById('changeLabel');
+    const supportLabel = document.getElementById('supportLabel');
+    const resistanceLabel = document.getElementById('resistanceLabel');
+    const supportInput = document.getElementById('supportInput');
+    const resistanceInput = document.getElementById('resistanceInput');
+    const modeBadge = document.getElementById('modeBadge');
+    const benchmarkBadge = document.getElementById('benchmarkBadge');
+    const tvChartTitle = document.getElementById('tvChartTitle');
+    const historyTitle = document.getElementById('historyTitle');
+    const priceEl = document.getElementById('price');
+    const changeEl = document.getElementById('change');
+    const statusEl = document.getElementById('status');
+    const lastUpdateEl = document.getElementById('lastUpdate');
+    const timestampBadge = document.getElementById('timestampBadge');
+    const smaEl = document.getElementById('sma20');
+    const unitConverterCard = document.getElementById('unitConverterCard');
+    const converterTitle = document.getElementById('converterTitle');
+    const convOunce = document.getElementById('convOunce');
+    const convGram = document.getElementById('convGram');
+    const convKg = document.getElementById('convKg');
+    const convTael = document.getElementById('convTael');
+
+    // ===== 載入與切換資產 =====
+    function switchAsset(assetKey) {
+        currentAsset = assetKey;
+        const cfg = ASSET_CONFIG[assetKey];
+
+        // 停止舊的連線
+        if (goldInterval) clearInterval(goldInterval);
+        if (btcWs) { btcWs.close(); btcWs = null; }
+
+        // 更新頂部按鈕狀態
+        const goldBtn = document.getElementById('switchGoldBtn');
+        const btcBtn = document.getElementById('switchBtcBtn');
+        if (assetKey === 'gold') {
+            goldBtn.className = `px-3 py-1.5 rounded-md text-xs font-bold ${cfg.btnActive} transition-colors`;
+            btcBtn.className = `px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition-colors`;
+            unitConverterCard.style.display = 'block'; // 顯示黃金單位換算
+        } else {
+            btcBtn.className = `px-3 py-1.5 rounded-md text-xs font-bold ${cfg.btnActive} transition-colors`;
+            goldBtn.className = `px-3 py-1.5 rounded-md text-xs font-bold text-slate-400 hover:text-white transition-colors`;
+            unitConverterCard.style.display = 'none'; // BTC 隱藏黃金專用換算表
         }
 
-        // ===== TradingView 圖表初始化 =====
-        function initTradingView(symbol) {
-            document.getElementById('tradingview_chart').innerHTML = '';
-            new TradingView.widget({
-                "autosize": true,
-                "symbol": symbol,
-                "interval": "15",
-                "timezone": "Etc/UTC",
-                "theme": "dark",
-                "style": "1",
-                "locale": "zh_TW",
-                "toolbar_bg": "#f1f3f6",
-                "enable_publishing": false,
-                "hide_side_toolbar": false,
-                "container_id": "tradingview_chart"
-            });
-        }
+        // 更新標題與文字
+        assetIcon.textContent = cfg.icon;
+        assetIcon.className = cfg.accentClass;
+        assetTitle.textContent = cfg.title;
+        dataSourceDesc.textContent = cfg.dataSource;
+        priceLabel.textContent = cfg.priceLabel;
+        changeLabel.textContent = cfg.changeLabel;
+        supportLabel.textContent = cfg.supportLabel;
+        resistanceLabel.textContent = cfg.resistanceLabel;
+        modeBadge.textContent = cfg.modeText;
+        benchmarkBadge.textContent = cfg.benchmarkText;
+        tvChartTitle.textContent = `實時線圖（${cfg.tvSymbol}）`;
+        historyTitle.textContent = `${cfg.name} 歷史價格記錄（本機儲存）`;
 
-        // ===== 門檻記憶 =====
-        function loadThresholds() {
-            const cfg = ASSET_CONFIG[currentAsset];
-            try {
-                const saved = JSON.parse(localStorage.getItem(cfg.threshKey) || 'null');
-                if (saved) {
-                    supportInput.value = saved.support;
-                    resistanceInput.value = saved.resistance;
-                } else {
-                    supportInput.value = cfg.defaultSupport;
-                    resistanceInput.value = cfg.defaultResistance;
-                }
-            } catch (e) {
+        // 載入門檻記憶
+        loadThresholds();
+
+        // 載入歷史資料
+        loadHistory();
+        updateHistoryChart();
+
+        // 重新初始化 TradingView 圖表
+        initTradingView(cfg.tvSymbol);
+
+        // 啟動對應資料來源
+        lastPrice = null;
+        if (assetKey === 'gold') {
+            fetchGoldPriceData();
+            goldInterval = setInterval(fetchGoldPriceData, 30 * 1000);
+        } else {
+            connectBtcWebSocket();
+        }
+    }
+
+    // ===== TradingView 圖表初始化 =====
+    function initTradingView(symbol) {
+        document.getElementById('tradingview_chart').innerHTML = '';
+        new TradingView.widget({
+            "autosize": true,
+            "symbol": symbol,
+            "interval": "15",
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
+            "locale": "zh_TW",
+            "toolbar_bg": "#f1f3f6",
+            "enable_publishing": false,
+            "hide_side_toolbar": false,
+            "container_id": "tradingview_chart"
+        });
+    }
+
+    // ===== 門檻記憶 =====
+    function loadThresholds() {
+        const cfg = ASSET_CONFIG[currentAsset];
+        try {
+            const saved = JSON.parse(localStorage.getItem(cfg.threshKey) || 'null');
+            if (saved) {
+                supportInput.value = saved.support;
+                resistanceInput.value = saved.resistance;
+            } else {
                 supportInput.value = cfg.defaultSupport;
                 resistanceInput.value = cfg.defaultResistance;
             }
+        } catch (e) {
+            supportInput.value = cfg.defaultSupport;
+            resistanceInput.value = cfg.defaultResistance;
         }
+    }
 
-        function saveThresholds() {
-            const cfg = ASSET_CONFIG[currentAsset];
-            try {
-                localStorage.setItem(cfg.threshKey, JSON.stringify({
-                    support: supportInput.value,
-                    resistance: resistanceInput.value
-                }));
-            } catch (e) {}
-        }
-        supportInput.addEventListener('change', saveThresholds);
-        resistanceInput.addEventListener('change', saveThresholds);
+    function saveThresholds() {
+        const cfg = ASSET_CONFIG[currentAsset];
+        try {
+            localStorage.setItem(cfg.threshKey, JSON.stringify({
+                support: supportInput.value,
+                resistance: resistanceInput.value
+            }));
+        } catch (e) {}
+    }
+    supportInput.addEventListener('change', saveThresholds);
+    resistanceInput.addEventListener('change', saveThresholds);
 
-        // ===== 歷史資料管理 =====
-        function loadHistory() {
-            const cfg = ASSET_CONFIG[currentAsset];
-            try {
-                const raw = JSON.parse(localStorage.getItem(cfg.historyKey) || '[]');
-                const cutoff = Date.now() - (24 * 60 * 60 * 1000);
-                priceHistory = raw.filter(pt => pt.t >= cutoff);
-            } catch (e) {
-                priceHistory = [];
-            }
-        }
-
-        function saveHistory() {
-            const cfg = ASSET_CONFIG[currentAsset];
-            try {
-                localStorage.setItem(cfg.historyKey, JSON.stringify(priceHistory));
-            } catch (e) {
-                priceHistory = priceHistory.slice(Math.floor(priceHistory.length / 2));
-                try { localStorage.setItem(cfg.historyKey, JSON.stringify(priceHistory)); } catch (e2) {}
-            }
-        }
-
-        let lastRecordTime = 0;
-        function recordPricePoint(price) {
-            const now = Date.now();
-            // 黃金每筆記錄，BTC若太頻繁可降頻，此處皆直接記錄
-            priceHistory.push({ t: now, p: price });
-            const cutoff = now - (24 * 60 * 60 * 1000);
-            while (priceHistory.length && priceHistory[0].t < cutoff) priceHistory.shift();
-            saveHistory();
-            updateHistoryChart();
-        }
-
-        document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+    // ===== 歷史資料管理 =====
+    function loadHistory() {
+        const cfg = ASSET_CONFIG[currentAsset];
+        try {
+            const raw = JSON.parse(localStorage.getItem(cfg.historyKey) || '[]');
+            const cutoff = Date.now() - (24 * 60 * 60 * 1000);
+            priceHistory = raw.filter(pt => pt.t >= cutoff);
+        } catch (e) {
             priceHistory = [];
-            saveHistory();
+        }
+    }
+
+    function saveHistory() {
+        const cfg = ASSET_CONFIG[currentAsset];
+        try {
+            localStorage.setItem(cfg.historyKey, JSON.stringify(priceHistory));
+        } catch (e) {
+            priceHistory = priceHistory.slice(Math.floor(priceHistory.length / 2));
+            try { localStorage.setItem(cfg.historyKey, JSON.stringify(priceHistory)); } catch (e2) {}
+        }
+    }
+
+    function recordPricePoint(price) {
+        const now = Date.now();
+        priceHistory.push({ t: now, p: price });
+        const cutoff = now - (24 * 60 * 60 * 1000);
+        while (priceHistory.length && priceHistory[0].t < cutoff) priceHistory.shift();
+        saveHistory();
+        updateHistoryChart();
+    }
+
+    document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+        priceHistory = [];
+        saveHistory();
+        updateHistoryChart();
+    });
+
+    // ===== Chart.js 圖表設定 =====
+    const historyCtx = document.getElementById('historyChart').getContext('2d');
+    const historyChart = new Chart(historyCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Price',
+                data: [],
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.15
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            scales: {
+                x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 }, grid: { color: '#334155' } },
+                y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    function updateHistoryChart() {
+        const cfg = ASSET_CONFIG[currentAsset];
+        const cutoff = Date.now() - currentRangeHours * 60 * 60 * 1000;
+        const visible = priceHistory.filter(pt => pt.t >= cutoff);
+
+        historyChart.data.labels = visible.map(pt => {
+            const d = new Date(pt.t);
+            return d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        });
+        historyChart.data.datasets[0].data = visible.map(pt => pt.p);
+        historyChart.data.datasets[0].borderColor = cfg.color;
+        historyChart.update('none');
+
+        if (visible.length > 0) {
+            const windowData = visible.slice(-20);
+            const avg = windowData.reduce((s, pt) => s + pt.p, 0) / windowData.length;
+            smaEl.textContent = `$${avg.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+        } else {
+            smaEl.textContent = '--';
+        }
+    }
+
+    document.querySelectorAll('.range-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentRangeHours = parseFloat(btn.dataset.range);
+            document.querySelectorAll('.range-btn').forEach(b => {
+                b.className = 'range-btn px-2.5 py-1 rounded text-xs bg-slate-700 border border-slate-600';
+            });
+            btn.className = 'range-btn px-2.5 py-1 rounded text-xs bg-amber-600 border border-amber-500';
             updateHistoryChart();
         });
+    });
 
-        // ===== Chart.js 圖表設定 =====
-        const historyCtx = document.getElementById('historyChart').getContext('2d');
-        const historyChart = new Chart(historyCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Price',
-                    data: [],
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-                    borderWidth: 1.5,
-                    pointRadius: 0,
-                    fill: true,
-                    tension: 0.15
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                scales: {
-                    x: { ticks: { color: '#94a3b8', maxTicksLimit: 8 }, grid: { color: '#334155' } },
-                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
-
-        function updateHistoryChart() {
-            const cfg = ASSET_CONFIG[currentAsset];
-            const cutoff = Date.now() - currentRangeHours * 60 * 60 * 1000;
-            const visible = priceHistory.filter(pt => pt.t >= cutoff);
-
-            historyChart.data.labels = visible.map(pt => {
-                const d = new Date(pt.t);
-                return d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            });
-            historyChart.data.datasets[0].data = visible.map(pt => pt.p);
-            historyChart.data.datasets[0].borderColor = cfg.color;
-            historyChart.update('none');
-
-            if (visible.length > 0) {
-                const windowData = visible.slice(-20);
-                const avg = windowData.reduce((s, pt) => s + pt.p, 0) / windowData.length;
-                smaEl.textContent = `$${avg.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+    // ===== 黃金數據源 (API Polling) =====
+    async function fetchGoldPriceData() {
+        if (currentAsset !== 'gold') return;
+        try {
+            const response = await fetch("https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT", { cache: "no-store" });
+            if (response.ok) {
+                const data = await response.json();
+                const symbolData = data.symbols ? data.symbols[0] : data;
+                const currentPrice = parseFloat(symbolData.price || symbolData.ask || symbolData.bid);
+                const timeStr = symbolData.computed_at || new Date().toISOString();
+                if (!isNaN(currentPrice)) {
+                    updateUI(currentPrice, null, timeStr);
+                }
             } else {
-                smaEl.textContent = '--';
+                statusEl.innerText = "⚠ 黃金 API 回應異常";
             }
+        } catch (err) {
+            if (lastPrice === null) lastPrice = 4345.50;
+            const simPrice = parseFloat((lastPrice + (Math.random() - 0.48) * 2).toFixed(2));
+            updateUI(simPrice, null, new Date().toISOString());
         }
+    }
 
-        document.querySelectorAll('.range-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                currentRangeHours = parseFloat(btn.dataset.range);
-                document.querySelectorAll('.range-btn').forEach(b => {
-                    b.className = 'range-btn px-2.5 py-1 rounded text-xs bg-slate-700 border border-slate-600';
-                });
-                btn.className = 'range-btn px-2.5 py-1 rounded text-xs bg-amber-600 border border-amber-500';
-                updateHistoryChart();
-            });
-        });
+    // ===== 比特幣數據源 (Binance WebSocket) =====
+    function connectBtcWebSocket() {
+        btcWs = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@ticker");
 
-        // ===== 黃金數據源 (API Polling) =====
-        async function fetchGoldPriceData() {
-            if (currentAsset !== 'gold') return;
-            try {
-                const response = await fetch("https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT", { cache: "no-store" });
-                if (response.ok) {
-                    const data = await response.json();
-                    const symbolData = data.symbols ? data.symbols[0] : data;
-                    const currentPrice = parseFloat(symbolData.price || symbolData.ask || symbolData.bid);
-                    const timeStr = symbolData.computed_at || new Date().toISOString();
-                    if (!isNaN(currentPrice)) {
-                        updateUI(currentPrice, null, timeStr);
-                    }
-                } else {
-                    statusEl.innerText = "⚠ 黃金 API 回應異常";
-                }
-            } catch (err) {
-                // 模擬防斷線備援
-                if (lastPrice === null) lastPrice = 4345.50;
-                const simPrice = parseFloat((lastPrice + (Math.random() - 0.48) * 2).toFixed(2));
-                updateUI(simPrice, null, new Date().toISOString());
-            }
-        }
-
-        // ===== 比特幣數據源 (Binance WebSocket) =====
-        function connectBtcWebSocket() {
-            btcWs = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@ticker");
-
-            btcWs.onopen = () => {
-                if (currentAsset !== 'btc') return;
-                statusEl.innerText = "● BTC WebSocket 連線正常";
-                statusEl.className = "px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-            };
-
-            btcWs.onmessage = (event) => {
-                if (currentAsset !== 'btc') return;
-                const data = JSON.parse(event.data);
-                const currentPrice = parseFloat(data.c);
-                const percentChange = parseFloat(data.P);
-                updateUI(currentPrice, percentChange, new Date().toISOString());
-            };
-
-            btcWs.onclose = () => {
-                if (currentAsset === 'btc') {
-                    statusEl.innerText = "✕ 連線中斷，重連中...";
-                    statusEl.className = "px-3 py-1 rounded-full text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30";
-                    setTimeout(connectBtcWebSocket, 3000);
-                }
-            };
-        }
-
-        // ===== 通用 UI 更新與警報引擎 =====
-        function updateUI(currentPrice, percentChange, timeStr) {
-            statusEl.innerText = `● ${ASSET_CONFIG[currentAsset].name} 監控中`;
+        btcWs.onopen = () => {
+            if (currentAsset !== 'btc') return;
+            statusEl.innerText = "● BTC WebSocket 連線正常";
             statusEl.className = "px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        };
 
-            priceEl.innerText = `$${currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-            priceEl.className = `text-3xl font-extrabold tracking-tight ${ASSET_CONFIG[currentAsset].accentClass}`;
+        btcWs.onmessage = (event) => {
+            if (currentAsset !== 'btc') return;
+            const data = JSON.parse(event.data);
+            const currentPrice = parseFloat(data.c);
+            const percentChange = parseFloat(data.P);
+            updateUI(currentPrice, percentChange, new Date().toISOString());
+        };
 
-            if (currentAsset === 'btc' && percentChange !== null) {
-                changeEl.innerText = `${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%`;
-                changeEl.className = `text-2xl font-bold ${percentChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
-            } else if (lastPrice !== null) {
-                const diff = currentPrice - lastPrice;
-                const sign = diff >= 0 ? '+' : '';
-                changeEl.innerText = `${sign}$${diff.toFixed(2)} USD`;
-                changeEl.className = `text-2xl font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
-            } else {
-                changeEl.innerText = '--';
+        btcWs.onclose = () => {
+            if (currentAsset === 'btc') {
+                statusEl.innerText = "✕ 連線中斷，重連中...";
+                statusEl.className = "px-3 py-1 rounded-full text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30";
+                setTimeout(connectBtcWebSocket, 3000);
             }
+        };
+    }
 
-            lastUpdateEl.textContent = new Date().toLocaleTimeString('zh-TW');
-            timestampBadge.textContent = new Date(timeStr).toLocaleTimeString('zh-TW');
+    // ===== 單位換算計算邏輯 =====
+    function updateGoldConverters(pricePerOunce) {
+        // 1 盎司 (oz) = 31.1035 公克 (g)
+        // 1 公斤 (kg) = 1000 公克 = 32.1507 盎司
+        // 1 台兩 = 37.5 公克
+        const gramsPerOunce = 31.1035;
+        const pricePerGram = pricePerOunce / gramsPerOunce;
+        const pricePerKg = pricePerGram * 1000;
+        const pricePerTael = pricePerGram * 37.5;
 
-            recordPricePoint(currentPrice);
-            checkAlerts(currentPrice);
+        convOunce.textContent = `$${pricePerOunce.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        convGram.textContent = `$${pricePerGram.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        convKg.textContent = `$${pricePerKg.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        convTael.textContent = `$${pricePerTael.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
 
-            lastPrice = currentPrice;
+    // ===== 通用 UI 更新與警報引擎 =====
+    function updateUI(currentPrice, percentChange, timeStr) {
+        statusEl.innerText = `● ${ASSET_CONFIG[currentAsset].name} 監控中`;
+        statusEl.className = "px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+
+        priceEl.innerText = `$${currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        priceEl.className = `text-3xl font-extrabold tracking-tight ${ASSET_CONFIG[currentAsset].accentClass}`;
+
+        if (currentAsset === 'btc' && percentChange !== null) {
+            changeEl.innerText = `${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}%`;
+            changeEl.className = `text-2xl font-bold ${percentChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+        } else if (lastPrice !== null) {
+            const diff = currentPrice - lastPrice;
+            const sign = diff >= 0 ? '+' : '';
+            changeEl.innerText = `${sign}$${diff.toFixed(2)} USD`;
+            changeEl.className = `text-2xl font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+        } else {
+            changeEl.innerText = '--';
         }
 
-        // ===== 警報與音效系統 =====
-        let audioCtx = null;
-        function triggerAlarm(freq = 880) {
-            if (muted) return;
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.5);
+        // 若為黃金，即時計算單位換算
+        if (currentAsset === 'gold') {
+            updateGoldConverters(currentPrice);
         }
 
-        function checkAlerts(currentPrice) {
-            const support = parseFloat(supportInput.value);
-            const resistance = parseFloat(resistanceInput.value);
-            const now = Date.now();
-            const assetName = ASSET_CONFIG[currentAsset].name;
+        lastUpdateEl.textContent = new Date().toLocaleTimeString('zh-TW');
+        timestampBadge.textContent = new Date(timeStr).toLocaleTimeString('zh-TW');
 
-            let newState = 'normal';
-            if (support && currentPrice <= support) newState = 'support';
-            else if (resistance && currentPrice >= resistance) newState = 'resistance';
+        recordPricePoint(currentPrice);
+        checkAlerts(currentPrice);
 
-            const stateChanged = newState !== alertState;
-            const cooldownExpired = now - lastAlertTime > (5 * 60 * 1000);
+        lastPrice = currentPrice;
+    }
 
-            if (newState !== 'normal' && (stateChanged || cooldownExpired)) {
-                lastAlertTime = now;
-                const priceText = `$${currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    // ===== 警報與音效系統 =====
+    let audioCtx = null;
+    function triggerAlarm(freq = 880) {
+        if (muted) return;
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+    }
 
-                if (newState === 'support') {
-                    triggerAlarm(440);
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification(`${assetName} 跌破支撐線`, { body: `目前價格 ${priceText}，低於支撐線 $${support.toLocaleString()}` });
-                    }
-                } else {
-                    triggerAlarm(880);
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification(`${assetName} 突破阻力線`, { body: `目前價格 ${priceText}，高於阻力線 $${resistance.toLocaleString()}` });
-                    }
+    function checkAlerts(currentPrice) {
+        const support = parseFloat(supportInput.value);
+        const resistance = parseFloat(resistanceInput.value);
+        const now = Date.now();
+        const assetName = ASSET_CONFIG[currentAsset].name;
+
+        let newState = 'normal';
+        if (support && currentPrice <= support) newState = 'support';
+        else if (resistance && currentPrice >= resistance) newState = 'resistance';
+
+        const stateChanged = newState !== alertState;
+        const cooldownExpired = now - lastAlertTime > (5 * 60 * 1000);
+
+        if (newState !== 'normal' && (stateChanged || cooldownExpired)) {
+            lastAlertTime = now;
+            const priceText = `$${currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+            if (newState === 'support') {
+                triggerAlarm(440);
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification(`${assetName} 跌破支撐線`, { body: `目前價格 ${priceText}，低於支撐線 $${support.toLocaleString()}` });
+                }
+            } else {
+                triggerAlarm(880);
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification(`${assetName} 突破阻力線`, { body: `目前價格 ${priceText}，高於阻力線 $${resistance.toLocaleString()}` });
                 }
             }
-
-            alertState = newState;
-            if (newState === 'support') {
-                document.body.className = "bg-red-950 text-white min-h-screen p-3 sm:p-4 md:p-8 transition-colors duration-300";
-            } else if (newState === 'resistance') {
-                document.body.className = "bg-emerald-950 text-white min-h-screen p-3 sm:p-4 md:p-8 transition-colors duration-300";
-            } else {
-                document.body.className = "bg-slate-900 text-white min-h-screen p-3 sm:p-4 md:p-8 transition-colors duration-300";
-            }
         }
 
-        // ===== 介面互動事件繫結 =====
-        document.getElementById('switchGoldBtn').addEventListener('click', () => switchAsset('gold'));
-        document.getElementById('switchBtcBtn').addEventListener('click', () => switchAsset('btc'));
+        alertState = newState;
+        if (newState === 'support') {
+            document.body.className = "bg-red-950 text-white min-h-screen p-3 sm:p-4 md:p-8 transition-colors duration-300";
+        } else if (newState === 'resistance') {
+            document.body.className = "bg-emerald-950 text-white min-h-screen p-3 sm:p-4 md:p-8 transition-colors duration-300";
+        } else {
+            document.body.className = "bg-slate-900 text-white min-h-screen p-3 sm:p-4 md:p-8 transition-colors duration-300";
+        }
+    }
 
-        const muteBtn = document.getElementById('muteBtn');
-        muteBtn.addEventListener('click', () => {
-            muted = !muted;
-            muteBtn.textContent = muted ? '🔇 音效靜音' : '🔊 音效開啟';
-        });
+    // ===== 介面互動事件繫結 =====
+    document.getElementById('switchGoldBtn').addEventListener('click', () => switchAsset('gold'));
+    document.getElementById('switchBtcBtn').addEventListener('click', () => switchAsset('btc'));
 
-        const notifyPermBtn = document.getElementById('notifyPermBtn');
-        notifyPermBtn.addEventListener('click', () => {
-            if ('Notification' in window) {
-                Notification.requestPermission().then(perm => {
-                    notifyPermBtn.textContent = perm === 'granted' ? '🔔 通知已啟用' : '🔕 通知被拒絕';
-                });
-            }
-        });
+    const muteBtn = document.getElementById('muteBtn');
+    muteBtn.addEventListener('click', () => {
+        muted = !muted;
+        muteBtn.textContent = muted ? '🔇 音效靜音' : '🔊 音效開啟';
+    });
 
-        // 初始載入預設為黃金
-        switchAsset('gold');
-    </script>
+    const notifyPermBtn = document.getElementById('notifyPermBtn');
+    notifyPermBtn.addEventListener('click', () => {
+        if ('Notification' in window) {
+            Notification.requestPermission().then(perm => {
+                notifyPermBtn.textContent = perm === 'granted' ? '🔔 通知已啟用' : '🔕 通知被拒絕';
+            });
+        }
+    });
+
+    // 初始載入預設為黃金
+    switchAsset('gold');
+</script>
+
 </body>
 </html>
+```
