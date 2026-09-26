@@ -43,7 +43,7 @@
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 class="text-sm font-semibold text-slate-200">遠端推播通知</h2>
-                    <p class="text-xs text-slate-500 mt-1">警報可轉發到 Telegram / LINE；密鑰只存在 Vercel 伺服器端。</p>
+                    <p class="text-xs text-slate-500 mt-1">警報可轉發到 Telegram / LINE；密鑰只存在 Netlify 伺服器端。</p>
                 </div>
                 <div class="flex items-center gap-3">
                     <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
@@ -610,8 +610,10 @@
             let ticker = null;
             if (currentAsset === 'gold') {
                 ticker = await fetchGoldData();
-                window.lastGoldPrice = ticker.price;
-                updateGoldConverter(ticker.price);
+                if (ticker && Number.isFinite(ticker.price)) {
+                    window.lastGoldPrice = ticker.price;
+                    updateGoldConverter(ticker.price);
+                }
             } else {
                 if (btcLatestData) {
                     ticker = btcLatestData;
@@ -669,7 +671,7 @@
                 }
                 if (pushTestResult) pushTestResult.textContent = '傳送中…';
                 const ok = await sendServerNotification(`Bitcorn 監控測試通知｜${new Date().toLocaleString('zh-TW')}`);
-                if (pushTestResult) pushTestResult.textContent = ok ? '✓ 已送出' : '✗ 失敗，請檢查 Vercel 環境變數';
+                if (pushTestResult) pushTestResult.textContent = ok ? '✓ 已送出' : '✗ 失敗，請檢查 Netlify 環境變數';
             });
         }
 
