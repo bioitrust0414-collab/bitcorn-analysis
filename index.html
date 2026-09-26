@@ -38,6 +38,26 @@
             </div>
         </div>
 
+        <!-- 遠端推播控制 -->
+        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-200">遠端推播通知</h2>
+                    <p class="text-xs text-slate-500 mt-1">警報可轉發到 Telegram / LINE；密鑰只存在 Vercel 伺服器端。</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="remotePushToggle" class="w-4 h-4 accent-amber-500">
+                        啟用
+                    </label>
+                    <button id="testPushBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs bg-slate-700 border border-slate-600 hover:bg-slate-600">
+                        發送測試
+                    </button>
+                    <span id="pushTestResult" class="text-xs text-slate-400"></span>
+                </div>
+            </div>
+        </div>
+
         <!-- 數據卡片區：即時價格 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
@@ -447,6 +467,18 @@
         });
         refreshNotifyBtn();
 
+        const remotePushToggle = document.getElementById('remotePushToggle');
+        const testPushBtn = document.getElementById('testPushBtn');
+        const pushTestResult = document.getElementById('pushTestResult');
+
+        if (remotePushToggle) {
+            remotePushToggle.checked = localStorage.getItem('remote_push_enabled') === '1';
+            remotePushToggle.addEventListener('change', () => {
+                localStorage.setItem('remote_push_enabled', remotePushToggle.checked ? '1' : '0');
+                if (pushTestResult) pushTestResult.textContent = remotePushToggle.checked ? '已啟用' : '已停用';
+            });
+        }
+
         function sendBrowserNotification(title, body) {
             if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification(title, { body });
@@ -454,6 +486,7 @@
         }
 
         async function sendServerNotification(message) {
+            if (localStorage.getItem('remote_push_enabled') !== '1') return false;
             try {
                 const res = await fetch('/api/notify', {
                     method: 'POST',
@@ -627,6 +660,18 @@
         let alertState = 'normal';
         let lastAlertTime = 0;
         const ALERT_COOLDOWN_MS = 5 * 60 * 1000;
+
+        if (testPushBtn) {
+            testPushBtn.addEventListener('click', async () => {
+                if (remotePushToggle && !remotePushToggle.checked) {
+                    remotePushToggle.checked = true;
+                    localStorage.setItem('remote_push_enabled', '1');
+                }
+                if (pushTestResult) pushTestResult.textContent = '傳送中…';
+                const ok = await sendServerNotification(`Bitcorn 監控測試通知｜${new Date().toLocaleString('zh-TW')}`);
+                if (pushTestResult) pushTestResult.textContent = ok ? '✓ 已送出' : '✗ 失敗，請檢查 Vercel 環境變數';
+            });
+        }
 
         function checkAlerts(currentPrice) {
             const support = parseFloat(supportInput.value);
