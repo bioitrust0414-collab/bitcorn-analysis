@@ -453,6 +453,21 @@
             }
         }
 
+        async function sendServerNotification(message) {
+            try {
+                const res = await fetch('/api/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                if (!res.ok) return false;
+                const data = await res.json().catch(() => ({}));
+                return data.ok === true;
+            } catch (e) {
+                return false;
+            }
+        }
+
         const priceEl = document.getElementById('price');
         const changeEl = document.getElementById('change');
         const statusEl = document.getElementById('status');
@@ -517,15 +532,7 @@
                 }
             } catch (e) {}
             
-            goldSimPrice += (Math.random() - 0.48) * 1.5;
-            return {
-                price: goldSimPrice,
-                open: goldSimPrice - 12,
-                changePct: 0.28,
-                high: goldSimPrice + 10,
-                low: goldSimPrice - 8,
-                volumeStr: '模擬連線中'
-            };
+            return null;
         }
 
         let btcWs = null;
@@ -533,17 +540,32 @@
 
         function initBtcWs() {
             if (btcWs) btcWs.close();
+            btcLatestData = null;
             btcWs = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
+            btcWs.onopen = () => {
+                if (currentAsset === 'btc') {
+                    statusEl.innerText = '● BTC 實時監控中';
+                    statusEl.className = 'px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                }
+            };
             btcWs.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                btcLatestData = {
-                    price: parseFloat(data.c),
-                    open: parseFloat(data.o),
-                    changePct: parseFloat(data.P),
-                    high: parseFloat(data.h),
-                    low: parseFloat(data.l),
-                    volumeStr: `${parseFloat(data.v).toFixed(1)} BTC`
-                };
+                try {
+                    const data = JSON.parse(event.data);
+                    const price = parseFloat(data.c);
+                    if (!Number.isFinite(price)) return;
+                    btcLatestData = {
+                        price,
+                        open: parseFloat(data.o),
+                        changePct: parseFloat(data.P),
+                        high: parseFloat(data.h),
+                        low: parseFloat(data.l),
+                        volumeStr: `${parseFloat(data.v).toFixed(1)} BTC`
+                    };
+                } catch (e) {}
+            };
+            btcWs.onerror = () => {};
+            btcWs.onclose = () => {
+                setTimeout(initBtcWs, 3000);
             };
         }
         initBtcWs();
@@ -561,8 +583,20 @@
                 if (btcLatestData) {
                     ticker = btcLatestData;
                 } else {
-                    ticker = { price: 88500, open: 87000, changePct: 1.72, high: 89200, low: 86800, volumeStr: '24,510 BTC' };
+                    ticker = null;
                 }
+            }
+
+            if (!ticker || !Number.isFinite(ticker.price)) {
+                statusEl.innerText = '⚠️ 行情來源暫時無法連線';
+                statusEl.className = 'px-3 py-1 rounded-full text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                priceEl.innerText = '--';
+                changeEl.innerText = '-- %';
+                high24El.textContent = '--';
+                low24El.textContent = '--';
+                volume24El.textContent = '等待資料';
+                lastUpdateEl.textContent = new Date().toLocaleTimeString('zh-TW');
+                return;
             }
 
             const curPrice = ticker.price;
@@ -612,11 +646,15 @@
                 const assetName = currentAsset === 'gold' ? '黃金 (XAU)' : '比特幣 (BTC)';
 
                 if (newState === 'support') {
+                    const message = `${assetName} 跌破支撐線｜目前價格 ${priceText}｜支撐線 ${support.toLocaleString('en-US')}`;
                     triggerAlarm(440);
-                    sendBrowserNotification(`${assetName} 跌破支撐線`, `目前價格 ${priceText}，已跌破支撐線 $${support.toLocaleString('en-US')}`);
+                    sendBrowserNotification(`${assetName} 跌破支撐線`, message);
+                    sendServerNotification(message);
                 } else {
+                    const message = `${assetName} 突破阻力線｜目前價格 ${priceText}｜阻力線 ${resistance.toLocaleString('en-US')}`;
                     triggerAlarm(880);
-                    sendBrowserNotification(`${assetName} 突破阻力線`, `目前價格 ${priceText}，已突破阻力線 $${resistance.toLocaleString('en-US')}`);
+                    sendBrowserNotification(`${assetName} 突破阻力線`, message);
+                    sendServerNotification(message);
                 }
             }
 
